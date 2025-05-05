@@ -11,6 +11,11 @@ app.config['SECRET_KEY'] = 'supersecretkey'
 users = []
 posts = []
 
+
+@app.route("/", methods=["GET"])
+def index():
+    return jsonify(message="Hello Ai Class")
+
 # Function to verify JWT token
 def token_required(f):
     @wraps(f)
