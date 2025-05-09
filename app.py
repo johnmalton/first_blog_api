@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'supersecretkey'
@@ -16,21 +17,7 @@ posts = []
 # Log file to track user operations
 log_file = 'user_operations.json'
 
-# Function to write logs to the JSON file
-def write_log(operation, username):
-    log_data = {
-        'operation': operation,
-        'username': username,
-        'timestamp': str(datetime.datetime.now())
-    }
-    try:
-        with open(log_file, 'a') as f:
-            json.dump(log_data, f)
-            f.write('\n')  # Each log entry should be in a new line
-    except Exception as e:
-        print(f"Error logging operation: {e}")
-
-# Ensure the log file exists and is initialized
+# Ensure the log file exists and is initialized properly
 def initialize_log_file():
     try:
         # If the file doesn't exist or is empty, initialize it as an empty list
@@ -49,9 +36,19 @@ def initialize_log_file():
 # Initialize log file when the app starts
 initialize_log_file()
 
-@app.route("/", methods=["GET"])
-def index():
-    return jsonify(message="Hello Ai Class")
+# Function to write logs to the JSON file
+def write_log(operation, username):
+    log_data = {
+        'operation': operation,
+        'username': username,
+        'timestamp': str(datetime.datetime.now())
+    }
+    try:
+        with open(log_file, 'a') as f:
+            json.dump(log_data, f)
+            f.write('\n')  # Each log entry should be in a new line
+    except Exception as e:
+        print(f"Error logging operation: {e}")
 
 # Function to verify JWT token
 def token_required(f):
@@ -122,48 +119,6 @@ def create_post(current_user):
 @token_required
 def get_posts(current_user):
     return jsonify({'posts': posts}), 200
-
-# Get a single post by ID
-@app.route('/post/<int:id>', methods=['GET'])
-@token_required
-def get_post(current_user, id):
-    post = next((post for post in posts if post['id'] == id), None)
-    if post:
-        return jsonify({'post': post}), 200
-    return jsonify({'message': 'Post not found'}), 404
-
-# Update a post
-@app.route('/post/<int:id>', methods=['PUT'])
-@token_required
-def update_post(current_user, id):
-    data = request.get_json()
-    post = next((post for post in posts if post['id'] == id), None)
-    if post:
-        post['title'] = data.get('title', post['title'])
-        post['content'] = data.get('content', post['content'])
-        return jsonify({'message': 'Post updated successfully!', 'post': post}), 200
-    return jsonify({'message': 'Post not found'}), 404
-
-# Delete a post
-@app.route('/post/<int:id>', methods=['DELETE'])
-@token_required
-def delete_post(current_user, id):
-    global posts
-    posts = [post for post in posts if post['id'] != id]
-    return jsonify({'message': 'Post deleted successfully!'}), 200
-
-# Route to view user operation logs
-@app.route('/logs', methods=['GET'])
-def get_logs():
-    try:
-        with open(log_file, 'r') as f:
-            content = f.read().strip()
-            if not content:
-                return jsonify({'logs': []}), 200  # If the file is empty, return an empty list
-            logs = [json.loads(log.strip()) for log in content.splitlines()]
-        return jsonify({'logs': logs}), 200
-    except Exception as e:
-        return jsonify({'message': f"Error reading log file: {e}"}), 500
 
 # Running the Flask App
 # if __name__ == '__main__':
