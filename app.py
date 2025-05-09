@@ -1,5 +1,6 @@
 # updated version
 import datetime
+import json
 from flask import Flask, request, jsonify
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -11,6 +12,23 @@ app.config['SECRET_KEY'] = 'supersecretkey'
 # In-memory storage for users and posts (replace with a database in production)
 users = []
 posts = []
+
+# Log file to track user operations
+log_file = 'user_operations.json'
+
+# Function to write logs to the JSON file
+def write_log(operation, username):
+    log_data = {
+        'operation': operation,
+        'username': username,
+        'timestamp': str(datetime.datetime.now())
+    }
+    try:
+        with open(log_file, 'a') as f:
+            json.dump(log_data, f)
+            f.write('\n')
+    except Exception as e:
+        print(f"Error logging operation: {e}")
 
 # Enable detailed error logging
 app.config['DEBUG'] = True
@@ -42,12 +60,16 @@ def token_required(f):
 @app.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
-    print(f"Sign Up Data: {data}")  # Log the signup data
+    # print(f"Sign Up Data: {data}")  # Log the signup data
     if 'username' not in data or 'password' not in data:
         return jsonify({'message': 'Username and password are required!'}), 400
     hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
     new_user = {'username': data['username'], 'password': hashed_password}
     users.append(new_user)
+
+    # Write log for signup
+    write_log("signup", data['username'])
+
     return jsonify({'message': 'User registered successfully!'}), 201
 
 # Route to login and get a JWT token
@@ -58,6 +80,10 @@ def login():
     for user in users:
         if user['username'] == data['username'] and check_password_hash(user['password'], data['password']):
             token = jwt.encode({'username': user['username'], 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'], algorithm='HS256')
+
+            # Write log for login
+            write_log("login", data['username'])
+
             return jsonify({'token': token}), 200
     return jsonify({'message': 'Invalid credentials'}), 401
 
@@ -110,9 +136,20 @@ def delete_post(current_user, id):
     posts = [post for post in posts if post['id'] != id]
     return jsonify({'message': 'Post deleted successfully!'}), 200
 
+# Route to view user operation logs
+@app.route('/logs', methods=['GET'])
+def get_logs():
+    try:
+        with open(log_file, 'r') as f:
+            logs = f.readlines()
+        return jsonify({'logs': [json.loads(log.strip()) for log in logs]}), 200
+    except Exception as e:
+        return jsonify({'message': f"Error reading log file: {e}"}), 500
+
 # Running the Flask App
 # if __name__ == '__main__':
 #     app.run(host='0.0.0.0', port=5000, debug=True)
+
 
 
 
