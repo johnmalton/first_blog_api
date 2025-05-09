@@ -26,12 +26,28 @@ def write_log(operation, username):
     try:
         with open(log_file, 'a') as f:
             json.dump(log_data, f)
-            f.write('\n')
+            f.write('\n')  # Each log entry should be in a new line
     except Exception as e:
         print(f"Error logging operation: {e}")
 
-# Enable detailed error logging
-app.config['DEBUG'] = True
+# Ensure the log file exists and is initialized
+def initialize_log_file():
+    try:
+        # If the file doesn't exist or is empty, initialize it as an empty list
+        if not os.path.exists(log_file):
+            with open(log_file, 'w') as f:
+                json.dump([], f)
+        else:
+            with open(log_file, 'r') as f:
+                content = f.read().strip()
+                if not content:  # If the file is empty, initialize it as an empty list
+                    with open(log_file, 'w') as f:
+                        json.dump([], f)
+    except Exception as e:
+        print(f"Error initializing log file: {e}")
+
+# Initialize log file when the app starts
+initialize_log_file()
 
 @app.route("/", methods=["GET"])
 def index():
@@ -60,7 +76,7 @@ def token_required(f):
 @app.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
-    # print(f"Sign Up Data: {data}")  # Log the signup data
+    print(f"Sign Up Data: {data}")  # Log the signup data
     if 'username' not in data or 'password' not in data:
         return jsonify({'message': 'Username and password are required!'}), 400
     hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
@@ -141,14 +157,18 @@ def delete_post(current_user, id):
 def get_logs():
     try:
         with open(log_file, 'r') as f:
-            logs = f.readlines()
-        return jsonify({'logs': [json.loads(log.strip()) for log in logs]}), 200
+            content = f.read().strip()
+            if not content:
+                return jsonify({'logs': []}), 200  # If the file is empty, return an empty list
+            logs = [json.loads(log.strip()) for log in content.splitlines()]
+        return jsonify({'logs': logs}), 200
     except Exception as e:
         return jsonify({'message': f"Error reading log file: {e}"}), 500
 
 # Running the Flask App
 # if __name__ == '__main__':
 #     app.run(host='0.0.0.0', port=5000, debug=True)
+
 
 
 
